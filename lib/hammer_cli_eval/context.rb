@@ -49,8 +49,8 @@ module HammerCLIEval
            %w[organization_id label]]
         when :repositories
           [%w[id],
-           %w[product_id name],
-           %w[product_id label]]
+           %w[organization_id product_id name],
+           %w[organization_id product_id label]]
         else
           super
         end
