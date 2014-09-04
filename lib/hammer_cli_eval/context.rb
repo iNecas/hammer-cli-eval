@@ -30,6 +30,38 @@ module HammerCLIEval
         def self.inherited(klass)
           @resource_configs << klass
         end
+
+        def extracted_ids(data)
+          data.inject({}) do |hash, (k, v)|
+            case k
+            when 'id'
+              hash.update(primary_id => v)
+            when /_id$/
+              hash.update(k => v)
+            else
+              hash
+            end
+          end.reject { |k, v| v.nil? }
+        end
+
+        def primary_id
+          @primary_id ||= "#{ApipieBindings::Inflector.singularize(resource_name)}_id"
+        end
+
+        def sub_resources(data)
+          extracted_ids = self.extracted_ids(data)
+          api.resources.find_all do |resource|
+            index_action = resource.action(:index)
+            index_action && index_action.all_params.any? { |p| p.name == primary_id }
+          end.map do |resource|
+            index_params = resource.action(:index).all_params
+            related_ids = extracted_ids.keep_if do |id_name, value|
+              index_params.any? { |p| p.name == id_name }
+            end
+            # TODO: I'm not sure why it doens't work without the dup
+            sub_resource(resource.name, related_ids.dup)
+          end
+        end
       end
 
       class OrganizationsConfig < DefaultConfig
@@ -38,21 +70,11 @@ module HammerCLIEval
         def confines?
           resource_name == :organizations
         end
-
-        def sub_resources(data)
-          [sub_resource(:products, { 'organization_id' => data['id'] })]
-        end
       end
 
       class ProductsConfig < DefaultConfig
         def confines?
           resource_name == :products
-        end
-
-        def sub_resources(data)
-          [sub_resource(:repositories,
-                        { 'organization_id' => data['organization_id'],
-                          'product_id'      => data['id']})]
         end
 
         def unique_keys
@@ -80,8 +102,7 @@ module HammerCLIEval
         end
 
         def sub_resources(data)
-          [sub_resource(:organizations),
-           sub_resource(:hosts)]
+          api.resources.map { |resource| sub_resource(resource.name) }
         end
       end
 
