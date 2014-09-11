@@ -41,7 +41,7 @@ module HammerCLIEval
             else
               hash
             end
-          end.reject { |k, v| v.nil? }
+          end
         end
 
         def primary_id
@@ -58,10 +58,41 @@ module HammerCLIEval
             related_ids = extracted_ids.keep_if do |id_name, value|
               index_params.any? { |p| p.name == id_name }
             end
-            # TODO: I'm not sure why it doens't work without the dup
             sub_resource(resource.name, related_ids.dup)
           end
         end
+
+        def detect_response_resource(action, params, response)
+          if %w[result state label progress].all? { |key| response.key?(key) }
+            # TODO: extract to foreman-tasks-cli after the resource config
+            # is part of the api bindings (not just the model part)
+            api.resource(:foreman_tasks)
+          else
+            super
+          end
+        end
+      end
+
+      class ForemanTasksConfig < DefaultConfig
+        def confines?
+          resource_name == :foreman_tasks
+        end
+
+        # @api_override
+        # @return [Hash<Symbol,Proc>] names and procs to define custom methods on
+        #   the resource
+        def custom_methods
+          { :wait => lambda do |task, _|
+              HammerCLIForemanTasks::TaskProgress.new(task.id) { |id| task.reload.to_hash }.tap do |task_progress|
+                task_progress.render
+              end
+              task
+            end,
+            :ready? => lambda do |task, _|
+              task.state == 'stopped'
+            end }
+        end
+
       end
 
       class OrganizationsConfig < DefaultConfig
@@ -113,7 +144,7 @@ module HammerCLIEval
     end
 
     def foreman
-      @foreman ||= ApipieBindings::Model::App.new(AppConfig.new)
+      @foreman ||= AppConfig.new.app
     end
 
     def pry
