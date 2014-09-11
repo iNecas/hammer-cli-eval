@@ -31,35 +31,11 @@ module HammerCLIEval
           @resource_configs << klass
         end
 
-        def extracted_ids(data)
-          data.inject({}) do |hash, (k, v)|
-            case k
-            when 'id'
-              hash.update(primary_id => v)
-            when /_id$/
-              hash.update(k => v)
-            else
-              hash
-            end
-          end
-        end
-
-        def primary_id
-          @primary_id ||= "#{ApipieBindings::Inflector.singularize(resource_name)}_id"
-        end
-
         def sub_resources(data)
-          extracted_ids = self.extracted_ids(data)
           api.resources.find_all do |resource|
             index_action = resource.action(:index)
             index_action && index_action.all_params.any? { |p| p.name == primary_id }
-          end.map do |resource|
-            index_params = resource.action(:index).all_params
-            related_ids = extracted_ids.keep_if do |id_name, value|
-              index_params.any? { |p| p.name == id_name }
-            end
-            sub_resource(resource.name, related_ids.dup)
-          end
+          end.map { |resource| sub_resource(resource) }
         end
 
         def detect_response_resource(action, params, response)
@@ -133,7 +109,7 @@ module HammerCLIEval
         end
 
         def sub_resources(data)
-          api.resources.map { |resource| sub_resource(resource.name) }
+          api.resources.map { |resource| sub_resource(resource) }
         end
       end
 
