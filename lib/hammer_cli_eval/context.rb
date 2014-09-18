@@ -31,13 +31,6 @@ module HammerCLIEval
           @resource_configs << klass
         end
 
-        def sub_resources(data)
-          api.resources.find_all do |resource|
-            index_action = resource.action(:index)
-            index_action && index_action.all_params.any? { |p| p.name == primary_id }
-          end.map { |resource| sub_resource(resource) }
-        end
-
         def detect_response_resource(action, params, response)
           if %w[result state label progress].all? { |key| response.key?(key) }
             # TODO: extract to foreman-tasks-cli after the resource config
@@ -106,10 +99,6 @@ module HammerCLIEval
       class RootConfig < DefaultConfig
         def confines?
           resource_name.nil?
-        end
-
-        def sub_resources(data)
-          api.resources.map { |resource| sub_resource(resource) }
         end
       end
 
