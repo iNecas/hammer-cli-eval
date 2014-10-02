@@ -1,6 +1,11 @@
+require 'pry'
+
+
 module HammerCLIEval
 
   class Context
+
+    include ApipieBindings::Model::Helper
 
     def initialize(hammer)
       @hammer = hammer
@@ -113,8 +118,8 @@ module HammerCLIEval
     end
 
     def pry
-      require 'pry'
       binding.pry
     end
+
   end
 end
